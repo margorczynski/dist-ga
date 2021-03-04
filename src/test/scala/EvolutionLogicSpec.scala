@@ -1,4 +1,4 @@
-package org.margorczynski.distevolve
+package org.margorczynski.distga
 
 import org.scalatest._
 import flatspec._

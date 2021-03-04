@@ -1,19 +1,16 @@
-package org.margorczynski.distevolve
+package org.margorczynski.distga
 
-import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.kafka.ConsumerMessage.CommittableMessage
-import akka.kafka.{ConsumerSettings, ProducerSettings, Subscriptions}
 import akka.kafka.scaladsl.{Consumer, Producer}
-import akka.stream._
-import akka.stream.scaladsl.{Flow, GraphDSL, Merge, RunnableGraph, Source}
+import akka.kafka.{ConsumerSettings, ProducerSettings, Subscriptions}
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.serialization.{DoubleDeserializer, DoubleSerializer, StringDeserializer, StringSerializer}
+import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 
-object ClientMain extends App {
+object ClientMain extends App with LazyLogging {
 
-  implicit val system: ActorSystem = ActorSystem("dist-evolve-client")
+  implicit val system: ActorSystem = ActorSystem("dist-ga-client")
 
   val consumerConfig = system.settings.config.getConfig("akka.kafka.consumer")
   val producerConfig = system.settings.config.getConfig("akka.kafka.producer")
@@ -23,14 +20,14 @@ object ClientMain extends App {
   val consumerSettings =
     ConsumerSettings(consumerConfig, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers(bootstrapServers)
-      .withGroupId("dist-evolve-client")
+      .withGroupId("dist-ga-client")
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
   val producerSettings =
-    ProducerSettings(producerConfig, new StringSerializer, new DoubleSerializer)
+    ProducerSettings(producerConfig, new StringSerializer, new StringSerializer)
       .withBootstrapServers(bootstrapServers)
 
-  val inputTopic = "dist-evolve-chromosome"
-  val outputTopic = "dist-evolve-chromosome-with-fitness"
+  val inputTopic = "dist-ga-chromosome"
+  val outputTopic = "dist-ga-chromosome-with-fitness"
 
   val kafkaChromosomeSource =
     Consumer.plainSource(consumerSettings, Subscriptions.topics(inputTopic))
@@ -42,20 +39,21 @@ object ClientMain extends App {
     .map { message =>
       val chromosome = message.value()
 
-      new ProducerRecord[String, java.lang.Double](outputTopic, chromosome, computeFitness(chromosome))
+      new ProducerRecord[String, String](outputTopic, chromosome, computeFitness(chromosome).toString)
     }
     .runWith(kafkaChromosomeWithFitnessSink)
 
 
-  //5x-15=0
+  //Max f(x) = x
   private def computeFitness(chromosome: Chromosome): Double = {
+
+    logger.debug(s"Compute fitness for $chromosome")
 
     val value = Integer.parseInt(chromosome, 2)
 
-    val result = (5 * value) - 15
+    val result = value
+    val fitness = value
 
-    println(result)
-
-    if(result != 0.0D) 1.0D/scala.math.abs(result) else Double.MaxValue
+    fitness
   }
 }
